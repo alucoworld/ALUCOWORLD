@@ -19,7 +19,7 @@ const COMBOS = [
   ["1006015-1006015","ACM Blanco - Blanco",26],
 ]
 const COLORES = ["Blanco","Azul","Verde","Amarillo","Oak","Bronze","Silver","Grafito","Negro","Brush","Silver Mate","Oro","Rojo","Mirror"]
-const TABS = ["Ventas","+ Nueva","Cobros","Stock","Despacho","Clientes","Socios"]
+const TABS = ["Ventas","+ Nueva","Cobros","Stock","Despacho","Clientes","Socios","Estadísticas"]
 
 const fmt = n => '$' + Math.round(n || 0).toLocaleString('es-AR')
 const hoy = () => new Date().toISOString().split('T')[0]
@@ -167,6 +167,7 @@ export default function App() {
         {tab === 4 && <TabDespacho ventas={ventas} />}
         {tab === 5 && <TabClientes ventas={ventas} cobros={cobros} />}
         {tab === 6 && <TabSocios ventas={ventas} onUpdate={updateVenta} />}
+        {tab === 7 && <EstadisticasLink />}
       </div>
     </div>
   )
@@ -613,4 +614,15 @@ const S = {
   badgeDanger: { background: '#FCEBEB', color: '#791F1F', padding: '2px 8px', borderRadius: 999, fontSize: 11, fontWeight: 500 },
   badgeWarn: { background: '#FAEEDA', color: '#633806', padding: '2px 8px', borderRadius: 999, fontSize: 11, fontWeight: 500 },
   socioCard: { border: '0.5px solid #e5e7eb', borderRadius: 12, padding: '14px 16px', marginBottom: 12 },
+}
+
+function EstadisticasLink() {
+  return (
+    <div style={{ padding: 32, textAlign: 'center' }}>
+      <div style={{ fontSize: 14, color: '#888', marginBottom: 16 }}>Las estadísticas se abren en pantalla completa.</div>
+      <a href="/estadisticas" style={{ display: 'inline-block', padding: '10px 24px', background: '#171D80', color: '#fff', borderRadius: 8, fontSize: 14, fontWeight: 500, textDecoration: 'none' }}>
+        Ver estadísticas →
+      </a>
+    </div>
+  )
 }
