@@ -27,7 +27,6 @@ const sivaDe = v => (v.placas || 0) + (v.meca || 0)
 const civaDe = v => sivaDe(v) * 1.21
 const cobPara = (fac, cobros) => cobros.filter(c => c.fac === fac).reduce((s, c) => s + (parseFloat(c.monto) || 0), 0)
 
-// ─── API helpers con soporte offline ─────────────────────────
 async function apiGet(path, fallback = []) {
   try {
     const r = await fetch(path)
@@ -41,12 +40,9 @@ async function apiGet(path, fallback = []) {
 }
 
 async function apiPost(path, body, optimistic) {
-  // Guardamos optimistamente en cache primero
   const current = getCached(path) || []
   const item = { ...body, id: body.id || Date.now().toString() }
-  if (optimistic) {
-    setCached(path, [...current, item])
-  }
+  if (optimistic) setCached(path, [...current, item])
   try {
     const r = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(item) })
     const saved = await r.json()
@@ -77,7 +73,6 @@ async function apiPut(path, id, body, cacheKey) {
   }
 }
 
-// ─── APP ROOT ─────────────────────────────────────────────────
 export default function App() {
   const [tab, setTab] = useState(0)
   const [ventas, setVentas] = useState([])
@@ -87,10 +82,7 @@ export default function App() {
 
   const load = useCallback(async () => {
     setSyncing(true)
-    const [v, c] = await Promise.all([
-      apiGet('/api/ventas'),
-      apiGet('/api/cobros'),
-    ])
+    const [v, c] = await Promise.all([apiGet('/api/ventas'), apiGet('/api/cobros')])
     setVentas(v); setCobros(c)
     setSyncing(false)
   }, [])
@@ -107,32 +99,22 @@ export default function App() {
 
   const addVenta = async v => {
     const nueva = await apiPost('/api/ventas', v, true)
-    setVentas(prev => {
-      const exists = prev.find(x => x.id === nueva.id)
-      return exists ? prev : [...prev, nueva]
-    })
+    setVentas(prev => prev.find(x => x.id === nueva.id) ? prev : [...prev, nueva])
     setTab(0)
   }
-
   const deleteVenta = async id => {
     if (!confirm('¿Borrar esta venta?')) return
     await apiDelete('/api/ventas', id, '/api/ventas')
     setVentas(prev => prev.filter(v => v.id !== id))
   }
-
   const updateVenta = async (id, changes) => {
     await apiPut('/api/ventas', id, changes, '/api/ventas')
     setVentas(prev => prev.map(v => v.id === id ? { ...v, ...changes } : v))
   }
-
   const addCobro = async c => {
     const nuevo = await apiPost('/api/cobros', c, true)
-    setCobros(prev => {
-      const exists = prev.find(x => x.id === nuevo.id)
-      return exists ? prev : [...prev, nuevo]
-    })
+    setCobros(prev => prev.find(x => x.id === nuevo.id) ? prev : [...prev, nuevo])
   }
-
   const deleteCobro = async id => {
     if (!confirm('¿Borrar este cobro?')) return
     await apiDelete('/api/cobros', id, '/api/cobros')
@@ -141,24 +123,19 @@ export default function App() {
 
   return (
     <div style={S.app}>
-      {/* Header */}
       <div style={S.header}>
         <span style={S.headerTitle}>ALUCOWORLD</span>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          {syncing && <span style={S.syncBadge}>⟳ sincronizando</span>}
-          <span style={{ ...S.statusDot, background: online ? '#4ade80' : '#f87171' }} title={online ? 'Online' : 'Offline'} />
+          {syncing && <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)' }}>⟳ sincronizando</span>}
+          <span style={{ width: 8, height: 8, borderRadius: '50%', background: online ? '#4ade80' : '#f87171', display: 'inline-block' }} />
           <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)' }}>{online ? 'online' : 'offline'}</span>
         </div>
       </div>
-
-      {/* Tabs */}
       <div style={S.tabs}>
         {TABS.map((t, i) => (
           <button key={i} onClick={() => setTab(i)} style={{ ...S.tab, ...(tab === i ? S.tabActive : {}) }}>{t}</button>
         ))}
       </div>
-
-      {/* Content */}
       <div style={S.content}>
         {tab === 0 && <TabVentas ventas={ventas} cobros={cobros} onDelete={deleteVenta} />}
         {tab === 1 && <TabNueva onSave={addVenta} onCancel={() => setTab(0)} />}
@@ -173,7 +150,6 @@ export default function App() {
   )
 }
 
-// ─── VENTAS ───────────────────────────────────────────────────
 function TabVentas({ ventas, cobros, onDelete }) {
   const tS = ventas.reduce((s, v) => s + sivaDe(v), 0)
   const tC = ventas.reduce((s, v) => s + civaDe(v), 0)
@@ -185,19 +161,12 @@ function TabVentas({ ventas, cobros, onDelete }) {
         {[['Total s/IVA', fmt(tS)], ['Total c/IVA', fmt(tC)], ['Cobrado', fmt(tCob)],
           ['Saldo pendiente', fmt(tSaldo), tSaldo > 0 ? '#A32D2D' : '#3B6D11']
         ].map(([l, v, c]) => (
-          <div key={l} style={S.metric}>
-            <div style={S.metricLabel}>{l}</div>
-            <div style={{ ...S.metricVal, ...(c ? { color: c } : {}) }}>{v}</div>
-          </div>
+          <div key={l} style={S.metric}><div style={S.metricLabel}>{l}</div><div style={{ ...S.metricVal, ...(c ? { color: c } : {}) }}>{v}</div></div>
         ))}
       </div>
       <div style={S.tableWrap}>
         <table style={S.table}>
-          <thead><tr>
-            {['N° FAC','FECHA','CLIENTE','MODALIDAD','ESTADO','S/IVA','IVA 21%','C/IVA','COBRADO','SALDO',''].map(h => (
-              <th key={h} style={S.th}>{h}</th>
-            ))}
-          </tr></thead>
+          <thead><tr>{['N° FAC','FECHA','CLIENTE','MODALIDAD','ESTADO','S/IVA','IVA 21%','C/IVA','COBRADO','SALDO',''].map(h => <th key={h} style={S.th}>{h}</th>)}</tr></thead>
           <tbody>
             {!ventas.length && <tr><td colSpan={11} style={S.empty}>Sin ventas. Usá + Nueva.</td></tr>}
             {ventas.map((v, i) => {
@@ -225,7 +194,6 @@ function TabVentas({ ventas, cobros, onDelete }) {
   )
 }
 
-// ─── NUEVA VENTA ──────────────────────────────────────────────
 function TabNueva({ onSave, onCancel }) {
   const [f, sf] = useState({ fac: '', fecha: hoy(), cliente: '', modal: '', estado: 'COBRADO', entrega: '', obs: '' })
   const [lineas, setLineas] = useState([{ combo: '', cant: '', color: '' }])
@@ -279,7 +247,6 @@ function TabNueva({ onSave, onCancel }) {
         </FG>
         <FG l="Fecha entrega"><input type="date" style={S.input} value={f.entrega} onChange={e => set('entrega', e.target.value)} /></FG>
       </div>
-
       <div style={S.sep} />
       <div style={S.cardTitle}>Líneas de producto</div>
       <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1.5fr auto', gap: 8, fontSize: 11, color: '#888', marginBottom: 6 }}>
@@ -343,7 +310,6 @@ function TabNueva({ onSave, onCancel }) {
   )
 }
 
-// ─── COBROS ───────────────────────────────────────────────────
 function TabCobros({ cobros, ventas, onAdd, onDelete }) {
   const [f, sf] = useState({ fac: '', fecha: hoy(), monto: '', tipo: 'ADELANTO', medio: 'TRANSFERENCIA' })
   const set = (k, v) => sf(x => ({ ...x, [k]: v }))
@@ -388,7 +354,6 @@ function TabCobros({ cobros, ventas, onAdd, onDelete }) {
   )
 }
 
-// ─── STOCK ────────────────────────────────────────────────────
 function TabStock({ ventas }) {
   const eg = {}
   COMBOS.forEach(c => eg[c[0]] = 0)
@@ -417,7 +382,6 @@ function TabStock({ ventas }) {
   )
 }
 
-// ─── DESPACHO ─────────────────────────────────────────────────
 function TabDespacho({ ventas }) {
   const [fecha, setFecha] = useState(hoy())
   const egTotal = {}; COMBOS.forEach(c => egTotal[c[0]] = 0)
@@ -484,7 +448,6 @@ function TabDespacho({ ventas }) {
   )
 }
 
-// ─── CLIENTES ─────────────────────────────────────────────────
 function TabClientes({ ventas, cobros }) {
   const mapa = {}
   ventas.forEach(v => { if (!mapa[v.cliente]) mapa[v.cliente] = { civa: 0, cob: 0 }; mapa[v.cliente].civa += civaDe(v) })
@@ -514,7 +477,6 @@ function TabClientes({ ventas, cobros }) {
   )
 }
 
-// ─── SOCIOS ───────────────────────────────────────────────────
 function TabSocios({ ventas, onUpdate }) {
   const grupos = [
     { modal: 'OBRA ALEJANDRO', titulo: 'Alejandro', color: '#3C3489', gan: v => v.placas - v.costo - v.moAlej },
@@ -559,6 +521,14 @@ function TabSocios({ ventas, onUpdate }) {
                 </tbody>
               </table>
             </div>
+            {/* Botón taller solo para Alfredo */}
+            {g.modal === 'PLACAS + MECANIZADO' && (
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 12 }}>
+                <a href="/taller-alfredo" style={{ padding: '7px 16px', background: '#171D80', color: '#fff', borderRadius: 8, fontSize: 13, fontWeight: 500, textDecoration: 'none' }}>
+                  Ver stock en taller →
+                </a>
+              </div>
+            )}
           </div>
         )
       })}
@@ -566,7 +536,17 @@ function TabSocios({ ventas, onUpdate }) {
   )
 }
 
-// ─── HELPERS ──────────────────────────────────────────────────
+function EstadisticasLink() {
+  return (
+    <div style={{ padding: 32, textAlign: 'center' }}>
+      <div style={{ fontSize: 14, color: '#888', marginBottom: 16 }}>Las estadísticas se abren en pantalla completa.</div>
+      <a href="/estadisticas" style={{ display: 'inline-block', padding: '10px 24px', background: '#171D80', color: '#fff', borderRadius: 8, fontSize: 14, fontWeight: 500, textDecoration: 'none' }}>
+        Ver estadísticas →
+      </a>
+    </div>
+  )
+}
+
 function FG({ l, children }) {
   return <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}><label style={{ fontSize: 12, color: '#888' }}>{l}</label>{children}</div>
 }
@@ -581,13 +561,10 @@ function EBadge({ e }) {
   return <span style={{ background: bg, color, padding: '2px 8px', borderRadius: 999, fontSize: 11, fontWeight: 500 }}>{e}</span>
 }
 
-// ─── ESTILOS ──────────────────────────────────────────────────
 const S = {
   app: { fontFamily: 'system-ui,-apple-system,sans-serif', maxWidth: 1100, margin: '0 auto', paddingBottom: 40, minHeight: '100vh', background: '#f9fafb' },
   header: { background: '#171D80', color: '#fff', padding: '14px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, zIndex: 100 },
   headerTitle: { fontWeight: 700, fontSize: 16, letterSpacing: 1 },
-  statusDot: { width: 8, height: 8, borderRadius: '50%', display: 'inline-block' },
-  syncBadge: { fontSize: 11, color: 'rgba(255,255,255,0.7)', animation: 'none' },
   tabs: { display: 'flex', borderBottom: '1px solid #e5e7eb', overflowX: 'auto', background: '#fff', position: 'sticky', top: 48, zIndex: 99 },
   tab: { padding: '10px 14px', border: 'none', background: 'none', cursor: 'pointer', fontSize: 13, color: '#666', borderBottom: '2px solid transparent', whiteSpace: 'nowrap', flexShrink: 0 },
   tabActive: { color: '#171D80', borderBottom: '2px solid #171D80', fontWeight: 600 },
@@ -614,15 +591,4 @@ const S = {
   badgeDanger: { background: '#FCEBEB', color: '#791F1F', padding: '2px 8px', borderRadius: 999, fontSize: 11, fontWeight: 500 },
   badgeWarn: { background: '#FAEEDA', color: '#633806', padding: '2px 8px', borderRadius: 999, fontSize: 11, fontWeight: 500 },
   socioCard: { border: '0.5px solid #e5e7eb', borderRadius: 12, padding: '14px 16px', marginBottom: 12 },
-}
-
-function EstadisticasLink() {
-  return (
-    <div style={{ padding: 32, textAlign: 'center' }}>
-      <div style={{ fontSize: 14, color: '#888', marginBottom: 16 }}>Las estadísticas se abren en pantalla completa.</div>
-      <a href="/estadisticas" style={{ display: 'inline-block', padding: '10px 24px', background: '#171D80', color: '#fff', borderRadius: 8, fontSize: 14, fontWeight: 500, textDecoration: 'none' }}>
-        Ver estadísticas →
-      </a>
-    </div>
-  )
 }
