@@ -1,4 +1,4 @@
-const CACHE = 'alucoworld-v1'
+const CACHE = 'alucoworld-v2'
 const OFFLINE_URLS = ['/', '/_next/static/chunks/main.js']
 
 self.addEventListener('install', e => {
@@ -34,17 +34,25 @@ self.addEventListener('fetch', e => {
     return
   }
 
-  // Pages & assets: cache first, then network
+  // Paginas (HTML): red primero, cache solo sin conexion
+  if (e.request.mode === 'navigate') {
+    e.respondWith(
+      fetch(e.request).then(res => {
+        if (res.ok) { const clone = res.clone(); caches.open(CACHE).then(c => c.put(e.request, clone)) }
+        return res
+      }).catch(() => caches.match(e.request).then(c => c || caches.match('/')))
+    )
+    return
+  }
+
+  // Assets (/_next/static tienen hash en el nombre): cache primero
   e.respondWith(
     caches.match(e.request).then(cached => {
-      const network = fetch(e.request).then(res => {
-        if (res.ok) {
-          const clone = res.clone()
-          caches.open(CACHE).then(c => c.put(e.request, clone))
-        }
+      if (cached) return cached
+      return fetch(e.request).then(res => {
+        if (res.ok) { const clone = res.clone(); caches.open(CACHE).then(c => c.put(e.request, clone)) }
         return res
       })
-      return cached || network
     })
   )
 })
