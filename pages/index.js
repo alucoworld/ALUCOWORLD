@@ -18,7 +18,7 @@ const COMBOS = [
   ["1008014-1008033","Black + Mirror",99],
 ]
 const COLORES = ["Blanco","Naranja","Madera Clara","Azul","Verde","Amarillo","Oak","Bronze","Silver","Grafito","Negro","Brush","Silver Mate","Oro","Rojo","Mirror"]
-const TABS = ["Ventas","+ Nueva","Cobros","Stock","Despacho","Clientes","Socios","Estadísticas"]
+const TABS = ["Ventas","+ Nueva","Cobros","Stock","Despacho","Clientes","Socios","Estadísticas","Importar"]
 
 const fmt = n => '$' + Math.round(n || 0).toLocaleString('es-AR')
 const hoy = () => new Date().toISOString().split('T')[0]
@@ -96,10 +96,10 @@ export default function App() {
     return () => { window.removeEventListener('online', onOnline); window.removeEventListener('offline', onOffline) }
   }, [load])
 
-  const addVenta = async v => {
+  const addVenta = async (v, quedarse) => {
     const nueva = await apiPost('/api/ventas', v, true)
     setVentas(prev => prev.find(x => x.id === nueva.id) ? prev : [...prev, nueva])
-    setTab(0)
+    if (!quedarse) setTab(0)
   }
   const deleteVenta = async id => {
     if (!confirm('¿Borrar esta venta?')) return
@@ -144,6 +144,7 @@ export default function App() {
         {tab === 5 && <TabClientes ventas={ventas} cobros={cobros} />}
         {tab === 6 && <TabSocios ventas={ventas} onUpdate={updateVenta} />}
         {tab === 7 && <EstadisticasLink />}
+        {tab === 8 && <TabImportar ventas={ventas} onVenta={v => addVenta(v, true)} onCobro={addCobro} />}
       </div>
     </div>
   )
@@ -243,6 +244,7 @@ function TabNueva({ onSave, onCancel }) {
         </FG>
         <FG l="Estado">
           <select style={S.input} value={f.estado} onChange={e => set('estado', e.target.value)}>
+            <option value="PENDIENTE">Pendiente (sin cobrar ni entregar)</option>
             <option value="COBRADO">Cobrado</option>
             <option value="ENTREGADO">Entregado</option>
             <option value="COBRADO+ENTREGADO">Cobrado + Entregado</option>
@@ -312,6 +314,54 @@ function TabNueva({ onSave, onCancel }) {
       <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 12 }}>
         <button style={S.btn} onClick={onCancel}>Cancelar</button>
         <button style={S.btnPrimary} onClick={handleSave}>Guardar venta</button>
+      </div>
+    </div>
+  )
+}
+
+function TabImportar({ ventas, onVenta, onCobro }) {
+  const [txt, setTxt] = useState('')
+  const [msg, setMsg] = useState(null)
+  const [busy, setBusy] = useState(false)
+
+  const importar = async () => {
+    setMsg(null)
+    let data
+    try { data = JSON.parse(txt) } catch { return setMsg({ ok: false, t: 'El texto no es válido. Pegalo completo, tal cual te lo pasó Claude.' }) }
+    const items = Array.isArray(data) ? data : [data]
+    if (!items.length) return setMsg({ ok: false, t: 'No hay nada para importar.' })
+    const facs = new Set(ventas.map(v => String(v.fac)))
+    const errores = [], ok = []
+    for (const it of items) {
+      if (it.tipo === 'venta') {
+        if (!it.fac || !it.cliente) { errores.push('Venta sin N° de factura o cliente'); continue }
+        if (facs.has(String(it.fac))) { errores.push(`Factura ${it.fac} ya estaba cargada, se salteó`); continue }
+        const malos = (it.lineas || []).filter(l => !COMBOS.find(c => c[0] === l.combo))
+        if (malos.length) { errores.push(`Factura ${it.fac}: color desconocido (${malos.map(l => l.combo).join(', ')})`); continue }
+        const { tipo, ...v } = it
+        const lineas = (v.lineas || []).map(l => ({ ...l, desc: COMBOS.find(c => c[0] === l.combo)[1] }))
+        await onVenta({ fecha: hoy(), modal: 'PLACAS', estado: 'PENDIENTE', entrega: '', obs: '', placas: 0, meca: 0, costo: 0, alfredo: 0, moAlej: 0, otros: 0, flete: 0, pagadoSocio: 'PENDIENTE', ...v, lineas })
+        facs.add(String(it.fac)); ok.push(`Venta ${it.fac} (${it.cliente})`)
+      } else if (it.tipo === 'cobro') {
+        if (!it.fac || !it.monto) { errores.push('Cobro sin factura o monto'); continue }
+        const cliente = ventas.find(v => String(v.fac) === String(it.fac))?.cliente || it.cliente || ''
+        const { tipo, ...c } = it
+        await onCobro({ fecha: hoy(), tipo: 'PARCIAL', medio: 'TRANSFERENCIA', ...c, cliente })
+        ok.push(`Cobro de ${fmt(parseFloat(it.monto))} a factura ${it.fac}`)
+      } else errores.push('Item sin tipo (tiene que ser "venta" o "cobro")')
+    }
+    setMsg({ ok: !errores.length, t: [ok.length ? 'Cargado: ' + ok.join(' · ') : '', ...errores].filter(Boolean).join(' | ') })
+    if (ok.length) setTxt('')
+  }
+
+  return (
+    <div style={S.card}>
+      <div style={S.cardTitle}>Importar ventas o cobros</div>
+      <p style={{ fontSize: 13, color: '#666', margin: '0 0 10px' }}>Pegá acá el texto que te pasa Claude y tocá Importar.</p>
+      <textarea style={{ ...S.input, width: '100%', minHeight: 220, fontFamily: 'monospace', fontSize: 12 }} value={txt} onChange={e => setTxt(e.target.value)} placeholder='[{"tipo":"venta", ...}]' />
+      {msg && <div style={{ marginTop: 10, padding: 10, borderRadius: 8, fontSize: 13, background: msg.ok ? '#EAF3DE' : '#FCEBEB', color: msg.ok ? '#27500A' : '#791F1F' }}>{msg.t}</div>}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 12 }}>
+        <button style={S.btnPrimary} disabled={busy || !txt.trim()} onClick={async () => { setBusy(true); await importar(); setBusy(false) }}>Importar</button>
       </div>
     </div>
   )
@@ -563,7 +613,7 @@ function MBadge({ m }) {
   return <span style={{ background: bg, color, padding: '2px 8px', borderRadius: 999, fontSize: 11, fontWeight: 500 }}>{label}</span>
 }
 function EBadge({ e }) {
-  const map = { 'COBRADO': ['#EAF3DE','#27500A'], 'ENTREGADO': ['#E6F1FB','#0C447C'], 'COBRADO+ENTREGADO': ['#EEEDFE','#3C3489'] }
+  const map = { 'PENDIENTE': ['#FAEEDA','#633806'], 'COBRADO': ['#EAF3DE','#27500A'], 'ENTREGADO': ['#E6F1FB','#0C447C'], 'COBRADO+ENTREGADO': ['#EEEDFE','#3C3489'] }
   const [bg, color] = map[e] || ['#eee','#333']
   return <span style={{ background: bg, color, padding: '2px 8px', borderRadius: 999, fontSize: 11, fontWeight: 500 }}>{e}</span>
 }
