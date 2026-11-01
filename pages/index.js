@@ -22,7 +22,7 @@ const TABS = ["Ventas","+ Nueva","Cobros","Stock","Despacho","Clientes","Socios"
 
 const fmt = n => '$' + Math.round(n || 0).toLocaleString('es-AR')
 const hoy = () => new Date().toISOString().split('T')[0]
-const sivaDe = v => (v.placas || 0) + (v.meca || 0)
+const sivaDe = v => (v.placas || 0) + (v.meca || 0) + (v.otros || 0)
 const civaDe = v => sivaDe(v) * 1.21
 const cobPara = (fac, cobros) => cobros.filter(c => c.fac === fac).reduce((s, c) => s + (parseFloat(c.monto) || 0), 0)
 
@@ -196,7 +196,7 @@ function TabVentas({ ventas, cobros, onDelete }) {
 function TabNueva({ onSave, onCancel }) {
   const [f, sf] = useState({ fac: '', fecha: hoy(), cliente: '', modal: '', estado: 'COBRADO', entrega: '', obs: '' })
   const [lineas, setLineas] = useState([{ combo: '', cant: '', color: '' }])
-  const [p, sp] = useState({ uni: '', cos: '', mec: '', alf: '', obra: '', mat: '', mo: '' })
+  const [p, sp] = useState({ uni: '', cos: '', mec: '', alf: '', obra: '', mat: '', mo: '', otros: '' })
   const set = (k, v) => sf(x => ({ ...x, [k]: v }))
   const setP = (k, v) => sp(x => ({ ...x, [k]: v }))
   const updL = (i, k, v) => setLineas(ls => ls.map((l, j) => j === i ? { ...l, [k]: v } : l))
@@ -210,6 +210,9 @@ function TabNueva({ onSave, onCancel }) {
   if (f.modal === 'OBRA ALEJANDRO') { base = parseFloat(p.obra) || 0; gan = base - (parseFloat(p.mat) || 0) - (parseFloat(p.mo) || 0) }
   if (f.modal === 'OBRA AGUSTIN') { base = parseFloat(p.obra) || 0; gan = (base - (parseFloat(p.mat) || 0)) * 0.5 }
 
+  const otros = parseFloat(p.otros) || 0
+  base += otros
+
   const handleSave = () => {
     if (!f.fac || !f.cliente || !f.modal) return alert('Completá N° factura, cliente y modalidad')
     const ls = lineas.filter(l => l.combo && parseFloat(l.cant) > 0).map(l => ({ ...l, desc: COMBOS.find(c => c[0] === l.combo)?.[1] || '' }))
@@ -218,7 +221,7 @@ function TabNueva({ onSave, onCancel }) {
     if (f.modal === 'PLACAS + MECANIZADO') { meca = parseFloat(p.mec) || 0; alfredo = parseFloat(p.alf) || 0 }
     if (f.modal === 'OBRA ALEJANDRO' || f.modal === 'OBRA AGUSTIN') { placas = parseFloat(p.obra) || 0; costo = parseFloat(p.mat) || 0 }
     if (f.modal === 'OBRA ALEJANDRO') moAlej = parseFloat(p.mo) || 0
-    onSave({ ...f, placas, meca, costo, alfredo, moAlej, lineas: ls, pagadoSocio: 'PENDIENTE' })
+    onSave({ ...f, placas, meca, costo, alfredo, moAlej, otros, lineas: ls, pagadoSocio: 'PENDIENTE' })
   }
 
   return (
@@ -289,6 +292,9 @@ function TabNueva({ onSave, onCancel }) {
             {f.modal === 'OBRA ALEJANDRO' && <FG l="$ M.O. Alejandro"><input type="number" style={S.input} value={p.mo} onChange={e => setP('mo', e.target.value)} placeholder="0" /></FG>}
           </div>
         )}
+        <div style={S.formRow}>
+          <FG l="$ Selladores y pistolas s/IVA (aparte, no suma a la ganancia)"><input type="number" style={S.input} value={p.otros} onChange={e => setP('otros', e.target.value)} placeholder="0" /></FG>
+        </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 10, background: '#f5f5f5', borderRadius: 8, padding: 12, marginTop: 8 }}>
           {[['Total s/IVA', fmt(base)], ['IVA 21%', fmt(base * .21), '#854F0B'], ['Total c/IVA', fmt(base * 1.21)], ['Ganancia neta', fmt(gan), gan >= 0 ? '#3B6D11' : '#A32D2D']].map(([l, v, c]) => (
             <div key={l} style={{ textAlign: 'center' }}>
