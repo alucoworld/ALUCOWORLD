@@ -24,6 +24,8 @@ const fmt = n => '$' + Math.round(n || 0).toLocaleString('es-AR')
 const hoy = () => new Date().toISOString().split('T')[0]
 const sivaDe = v => (v.placas || 0) + (v.meca || 0) + (v.otros || 0) + (v.flete || 0)
 const civaDe = v => sivaDe(v) * 1.21
+const salio = v => !!v.entrega
+const sumLineas = (vs, eg) => vs.forEach(v => v.lineas?.forEach(l => { if (l.combo) eg[l.combo] = (eg[l.combo] || 0) + (parseFloat(l.cant) || 0) }))
 const cobPara = (fac, cobros) => cobros.filter(c => c.fac === fac).reduce((s, c) => s + (parseFloat(c.monto) || 0), 0)
 
 async function apiGet(path, fallback = []) {
@@ -136,7 +138,7 @@ export default function App() {
         ))}
       </div>
       <div style={S.content}>
-        {tab === 0 && <TabVentas ventas={ventas} cobros={cobros} onDelete={deleteVenta} />}
+        {tab === 0 && <TabVentas ventas={ventas} cobros={cobros} onDelete={deleteVenta} onUpdate={updateVenta} />}
         {tab === 1 && <TabNueva onSave={addVenta} onCancel={() => setTab(0)} />}
         {tab === 2 && <TabCobros cobros={cobros} ventas={ventas} onAdd={addCobro} onDelete={deleteCobro} />}
         {tab === 3 && <TabStock ventas={ventas} />}
@@ -150,7 +152,7 @@ export default function App() {
   )
 }
 
-function TabVentas({ ventas, cobros, onDelete }) {
+function TabVentas({ ventas, cobros, onDelete, onUpdate }) {
   const tS = ventas.reduce((s, v) => s + sivaDe(v), 0)
   const tC = ventas.reduce((s, v) => s + civaDe(v), 0)
   const tCob = cobros.reduce((s, c) => s + (parseFloat(c.monto) || 0), 0)
@@ -166,9 +168,9 @@ function TabVentas({ ventas, cobros, onDelete }) {
       </div>
       <div style={S.tableWrap}>
         <table style={S.table}>
-          <thead><tr>{['N° FAC','FECHA','CLIENTE','MODALIDAD','ESTADO','S/IVA','IVA 21%','C/IVA','COBRADO','SALDO',''].map(h => <th key={h} style={S.th}>{h}</th>)}</tr></thead>
+          <thead><tr>{['N° FAC','FECHA','CLIENTE','MODALIDAD','ESTADO','S/IVA','IVA 21%','C/IVA','COBRADO','SALDO','DESPACHO',''].map(h => <th key={h} style={S.th}>{h}</th>)}</tr></thead>
           <tbody>
-            {!ventas.length && <tr><td colSpan={11} style={S.empty}>Sin ventas. Usá + Nueva.</td></tr>}
+            {!ventas.length && <tr><td colSpan={12} style={S.empty}>Sin ventas. Usá + Nueva.</td></tr>}
             {ventas.map((v, i) => {
               const s = sivaDe(v), c = civaDe(v), cob = cobPara(v.fac, cobros), saldo = c - cob
               return (
@@ -183,6 +185,9 @@ function TabVentas({ ventas, cobros, onDelete }) {
                   <td style={{ ...S.td, textAlign: 'right', fontWeight: 600 }}>{fmt(c)}</td>
                   <td style={{ ...S.td, textAlign: 'right' }}>{fmt(cob)}</td>
                   <td style={{ ...S.td, textAlign: 'right', fontWeight: 600, color: Math.abs(saldo) < 1 ? '#3B6D11' : saldo > 0 ? '#A32D2D' : '#854F0B' }}>{fmt(saldo)}</td>
+                  <td style={S.td}>{v.entrega
+                    ? <span style={{ fontSize: 12 }}>✓ {v.entrega} <button style={{ ...S.btnSm, padding: '1px 6px' }} title="Deshacer despacho" onClick={() => confirm('¿Deshacer el despacho? Las placas vuelven al stock.') && onUpdate(v.id, { entrega: '' })}>↩</button></span>
+                    : <button style={S.btnSm} onClick={() => confirm('¿Salió la mercadería hoy? El stock va a bajar.') && onUpdate(v.id, { entrega: hoy() })}>Despachar</button>}</td>
                   <td style={S.td}><button style={S.btnDanger} onClick={() => onDelete(v.id)}>×</button></td>
                 </tr>
               )
@@ -414,14 +419,17 @@ function TabCobros({ cobros, ventas, onAdd, onDelete }) {
 function TabStock({ ventas }) {
   const eg = {}
   COMBOS.forEach(c => eg[c[0]] = 0)
-  ventas.forEach(v => v.lineas?.forEach(l => { if (l.combo) eg[l.combo] = (eg[l.combo] || 0) + (parseFloat(l.cant) || 0) }))
+  sumLineas(ventas.filter(salio), eg)
+  const pend = {}
+  sumLineas(ventas.filter(v => !salio(v)), pend)
   return (
     <div style={S.tableWrap}>
       <table style={S.table}>
-        <thead><tr>{['CÓDIGO','DESCRIPCIÓN','INICIAL','EGRESOS','ACTUAL',''].map(h => <th key={h} style={S.th}>{h}</th>)}</tr></thead>
+        <thead><tr>{['CÓDIGO','DESCRIPCIÓN','INICIAL','SALIERON','EN DEPÓSITO','VENDIDAS SIN DESPACHAR','DISPONIBLE',''].map(h => <th key={h} style={S.th}>{h}</th>)}</tr></thead>
         <tbody>
           {COMBOS.map((c, i) => {
             const actual = c[2] - (eg[c[0]] || 0)
+            const disp = actual - (pend[c[0]] || 0)
             return (
               <tr key={c[0]} style={i % 2 ? { background: '#fafafa' } : {}}>
                 <td style={{ ...S.td, fontSize: 11, color: '#888' }}>{c[0]}</td>
@@ -429,7 +437,9 @@ function TabStock({ ventas }) {
                 <td style={{ ...S.td, textAlign: 'right' }}>{c[2]}</td>
                 <td style={{ ...S.td, textAlign: 'right', color: '#A32D2D' }}>{eg[c[0]] || 0}</td>
                 <td style={{ ...S.td, textAlign: 'right', fontWeight: 600 }}>{actual}</td>
-                <td style={S.td}>{actual < 20 && <span style={{ color: '#A32D2D', fontWeight: 600 }}>⚠ bajo</span>}</td>
+                <td style={{ ...S.td, textAlign: 'right', color: '#854F0B' }}>{pend[c[0]] || 0}</td>
+                <td style={{ ...S.td, textAlign: 'right', fontWeight: 600, color: disp < 0 ? '#A32D2D' : 'inherit' }}>{disp}</td>
+                <td style={S.td}>{disp < 0 ? <span style={{ color: '#A32D2D', fontWeight: 600 }}>⚠ faltan {-disp}</span> : disp < 20 && <span style={{ color: '#A32D2D', fontWeight: 600 }}>⚠ bajo</span>}</td>
               </tr>
             )
           })}
@@ -442,7 +452,7 @@ function TabStock({ ventas }) {
 function TabDespacho({ ventas }) {
   const [fecha, setFecha] = useState(hoy())
   const egTotal = {}; COMBOS.forEach(c => egTotal[c[0]] = 0)
-  ventas.forEach(v => v.lineas?.forEach(l => { if (l.combo) egTotal[l.combo] = (egTotal[l.combo] || 0) + (parseFloat(l.cant) || 0) }))
+  sumLineas(ventas.filter(salio), egTotal)
   const egDia = {}; COMBOS.forEach(c => egDia[c[0]] = 0)
   ventas.filter(v => v.entrega === fecha).forEach(v => v.lineas?.forEach(l => { if (l.combo) egDia[l.combo] = (egDia[l.combo] || 0) + (parseFloat(l.cant) || 0) }))
   const totalDia = Object.values(egDia).reduce((s, n) => s + n, 0)
