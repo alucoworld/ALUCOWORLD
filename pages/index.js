@@ -177,7 +177,11 @@ function TabVentas({ ventas, cobros, onDelete, onUpdate }) {
                 <tr key={v.id} style={i % 2 ? { background: '#fafafa' } : {}}>
                   <td style={{ ...S.td, fontWeight: 600 }}>{v.fac}</td>
                   <td style={S.td}>{v.fecha}</td>
-                  <td style={S.td}>{v.cliente}</td>
+                  <td style={S.td}>{v.cliente}
+                    {(v.otros > 0 || v.flete > 0) && <div style={{ fontSize: 11, color: '#888', marginTop: 2 }}>
+                      Placas {fmt(v.placas)}{v.otros > 0 && ` · Selladores y pistolas ${fmt(v.otros)}`}{v.flete > 0 && ` · Embalaje y flete ${fmt(v.flete)}`}
+                    </div>}
+                  </td>
                   <td style={S.td}><MBadge m={v.modal} /></td>
                   <td style={S.td}><EBadge e={v.estado} /></td>
                   <td style={{ ...S.td, textAlign: 'right' }}>{fmt(s)}</td>
