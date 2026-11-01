@@ -2,21 +2,20 @@ import { useState, useEffect, useRef } from 'react'
 import { getCached } from '../lib/offline'
 
 const COMBOS = [
+  ["1006015+1008024","ACM Blanco + Naranja"],
   ["1006015-1008009","ACM Blanco - Azul"],
   ["1006015-1008008","ACM Blanco - Verde"],
   ["1006015-1008011","ACM Blanco - Amarillo"],
   ["1006015-1006042","ACM Blanco - Oak"],
   ["1006015-1006017","ACM Blanco - Bronze"],
+  ["1006015-201235","ACM Blanco - Madera Clara"],
   ["1008002-1006001","ACM Silver - Grafito"],
   ["1008002-1008014","ACM Silver - Negro"],
   ["1008002-1008030","ACM Silver - Brush"],
-  ["1008001-1008002","ACM Silver - Silver Mate"],
   ["1008014-1006017","ACM Negro - Bronze"],
   ["1008014-1008006","ACM Negro - Oro"],
-  ["1008014-1008009","ACM Negro - Azul"],
   ["1008014-1008007","ACM Negro - Rojo"],
   ["1008014-1008033","Black + Mirror"],
-  ["1006015-1006015","ACM Blanco - Blanco"],
 ]
 
 const TRIMESTRES = [

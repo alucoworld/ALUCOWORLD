@@ -2,23 +2,22 @@ import { useState, useEffect, useCallback } from 'react'
 import { getCached, setCached, enqueue, flushQueue } from '../lib/offline'
 
 const COMBOS = [
-  ["1006015-1008009","ACM Blanco - Azul",240],
-  ["1006015-1008008","ACM Blanco - Verde",40],
-  ["1006015-1008011","ACM Blanco - Amarillo",66],
-  ["1006015-1006042","ACM Blanco - Oak",81],
-  ["1006015-1006017","ACM Blanco - Bronze",35],
-  ["1008002-1006001","ACM Silver - Grafito",142],
-  ["1008002-1008014","ACM Silver - Negro",336],
-  ["1008002-1008030","ACM Silver - Brush",98],
-  ["1008001-1008002","ACM Silver - Silver Mate",105],
-  ["1008014-1006017","ACM Negro - Bronze",33],
-  ["1008014-1008006","ACM Negro - Oro",95],
-  ["1008014-1008009","ACM Negro - Azul",24],
-  ["1008014-1008007","ACM Negro - Rojo",0],
-  ["1008014-1008033","Black + Mirror",2],
-  ["1006015-1006015","ACM Blanco - Blanco",26],
+  ["1006015+1008024","ACM Blanco + Naranja",24],
+  ["1006015-1008009","ACM Blanco - Azul",31],
+  ["1006015-1008008","ACM Blanco - Verde",8],
+  ["1006015-1008011","ACM Blanco - Amarillo",5],
+  ["1006015-1006042","ACM Blanco - Oak",4],
+  ["1006015-1006017","ACM Blanco - Bronze",25],
+  ["1006015-201235","ACM Blanco - Madera Clara",151],
+  ["1008002-1006001","ACM Silver - Grafito",126],
+  ["1008002-1008014","ACM Silver - Negro",0],
+  ["1008002-1008030","ACM Silver - Brush",41],
+  ["1008014-1006017","ACM Negro - Bronze",1],
+  ["1008014-1008006","ACM Negro - Oro",0],
+  ["1008014-1008007","ACM Negro - Rojo",26],
+  ["1008014-1008033","Black + Mirror",99],
 ]
-const COLORES = ["Blanco","Azul","Verde","Amarillo","Oak","Bronze","Silver","Grafito","Negro","Brush","Silver Mate","Oro","Rojo","Mirror"]
+const COLORES = ["Blanco","Naranja","Madera Clara","Azul","Verde","Amarillo","Oak","Bronze","Silver","Grafito","Negro","Brush","Silver Mate","Oro","Rojo","Mirror"]
 const TABS = ["Ventas","+ Nueva","Cobros","Stock","Despacho","Clientes","Socios","Estadísticas"]
 
 const fmt = n => '$' + Math.round(n || 0).toLocaleString('es-AR')
