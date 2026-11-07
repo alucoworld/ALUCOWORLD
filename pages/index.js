@@ -18,7 +18,8 @@ const COMBOS = [
   ["1008014-1008033","Black + Mirror",99],
 ]
 const COLORES = ["Blanco","Naranja","Madera Clara","Azul","Verde","Amarillo","Oak","Bronze","Silver","Grafito","Negro","Brush","Silver Mate","Oro","Rojo","Mirror"]
-const TABS = ["Ventas","+ Nueva","Cobros","Stock","Despacho","Clientes","Socios","Estadísticas","Importar"]
+const TABS = ["Ventas","+ Nueva","Cobros","Stock","Despacho","Clientes","Socios","Estadísticas","Importar","Dashboard"]
+const ORDEN_TABS = [9,0,1,2,3,4,5,6,7,8]
 
 const fmt = n => '$' + Math.round(n || 0).toLocaleString('es-AR')
 const hoy = () => new Date().toISOString().split('T')[0]
@@ -75,7 +76,7 @@ async function apiPut(path, id, body, cacheKey) {
 }
 
 export default function App() {
-  const [tab, setTab] = useState(0)
+  const [tab, setTab] = useState(9)
   const [ventas, setVentas] = useState([])
   const [cobros, setCobros] = useState([])
   const [online, setOnline] = useState(true)
@@ -125,7 +126,7 @@ export default function App() {
   return (
     <div style={S.app}>
       <div style={S.header}>
-        <span style={S.headerTitle}>ALUCOWORLD</span>
+        <img src="/logo-blanco.png" alt="ALUCOWORLD" style={{ height: 40, display: 'block' }} />
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           {syncing && <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)' }}>⟳ sincronizando</span>}
           <span style={{ width: 8, height: 8, borderRadius: '50%', background: online ? '#4ade80' : '#f87171', display: 'inline-block' }} />
@@ -133,11 +134,12 @@ export default function App() {
         </div>
       </div>
       <div style={S.tabs}>
-        {TABS.map((t, i) => (
+        {ORDEN_TABS.map(i => [TABS[i], i]).map(([t, i]) => (
           <button key={i} onClick={() => setTab(i)} style={{ ...S.tab, ...(tab === i ? S.tabActive : {}) }}>{t}</button>
         ))}
       </div>
       <div style={S.content}>
+        {tab === 9 && <TabDashboard ventas={ventas} cobros={cobros} irA={setTab} />}
         {tab === 0 && <TabVentas ventas={ventas} cobros={cobros} onDelete={deleteVenta} onUpdate={updateVenta} />}
         {tab === 1 && <TabNueva onSave={addVenta} onCancel={() => setTab(0)} />}
         {tab === 2 && <TabCobros cobros={cobros} ventas={ventas} onAdd={addCobro} onDelete={deleteCobro} />}
@@ -151,6 +153,113 @@ export default function App() {
     </div>
   )
 }
+
+const COLOR_PLACA = { 'Madera Clara': '#D9B88F', 'Mirror': '#2b2b55', 'Grafito': '#4b4b4b', 'Bronze': '#C8A165', 'Azul': '#2563B8', 'Brush': '#8392a5', 'Rojo': '#C0392B', 'Verde': '#27AE60', 'Oak': '#8B6B14', 'Amarillo': '#E5B800', 'Naranja': '#E67E22', 'Negro': '#333', 'Oro': '#B8860B' }
+const colorDe = d => { const k = Object.keys(COLOR_PLACA).find(k => d.includes(k)); return k ? COLOR_PLACA[k] : '#185FA5' }
+const gananciaDe = v => v.modal === 'OBRA AGUSTIN' ? ((v.placas || 0) - (v.costo || 0)) * 0.5 : (v.placas || 0) + (v.meca || 0) - (v.costo || 0) - (v.alfredo || 0) - (v.moAlej || 0)
+
+function BarrasH({ datos, unidad = 'pl.', formato }) {
+  const max = Math.max(1, ...datos.map(d => d.valor))
+  if (!datos.length) return <div style={{ color: '#888', fontSize: 13, padding: 8 }}>Sin datos todavía.</div>
+  return (
+    <div>
+      {datos.map(d => (
+        <div key={d.label} style={{ display: 'grid', gridTemplateColumns: '130px 1fr 92px', alignItems: 'center', gap: 8, margin: '5px 0' }}>
+          <div style={{ fontSize: 12, color: '#444', textAlign: 'right', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.label}</div>
+          <div style={{ background: '#f1f1f1', borderRadius: 4, height: 18 }}>
+            <div style={{ width: `${Math.max(2, d.valor / max * 100)}%`, height: '100%', background: d.color, borderRadius: 4, ...(d.valor < 0 ? { background: '#A32D2D' } : {}) }} />
+          </div>
+          <div style={{ fontSize: 12, fontWeight: 600 }}>{formato ? formato(d.valor) : `${d.valor} ${unidad}`}</div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function TabDashboard({ ventas, cobros, irA }) {
+  const ahora = new Date()
+  const mesKey = `${ahora.getFullYear()}-${String(ahora.getMonth() + 1).padStart(2, '0')}`
+  const mesTxt = ahora.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' })
+  const delMes = ventas.filter(v => (v.fecha || '').startsWith(mesKey))
+  const fact = delMes.reduce((s, v) => s + sivaDe(v), 0)
+  const gan = delMes.reduce((s, v) => s + gananciaDe(v), 0)
+  const tC = ventas.reduce((s, v) => s + civaDe(v), 0)
+  const tCob = cobros.reduce((s, c) => s + (parseFloat(c.monto) || 0), 0)
+  const pendEntrega = ventas.filter(v => !salio(v))
+
+  const eg = {}, pend = {}
+  sumLineas(ventas.filter(salio), eg); sumLineas(ventas.filter(v => !salio(v)), pend)
+  const stockRows = COMBOS.map(c => ({ desc: c[1], actual: c[2] - (eg[c[0]] || 0), disp: c[2] - (eg[c[0]] || 0) - (pend[c[0]] || 0) }))
+  const stockTotal = stockRows.reduce((s, r) => s + r.actual, 0)
+  const sinStock = stockRows.filter(r => r.actual <= 0).length
+  const faltantes = stockRows.filter(r => r.disp < 0)
+
+  const vend = {}
+  delMes.forEach(v => {
+    ;(v.lineas || []).forEach(l => { const d = (l.desc || COMBOS.find(c => c[0] === l.combo)?.[1] || l.combo || '').replace('ACM ', ''); vend[d] = (vend[d] || 0) + (parseFloat(l.cant) || 0) })
+    ;(v.vendido || []).forEach(l => { vend[l.desc] = (vend[l.desc] || 0) + (parseFloat(l.cant) || 0) })
+  })
+  const datosVend = Object.entries(vend).filter(([, n]) => n > 0).sort((a, b) => b[1] - a[1]).map(([label, valor]) => ({ label, valor, color: colorDe(label) }))
+  const datosStock = stockRows.filter(r => r.actual > 0).sort((a, b) => b.actual - a.actual).map(r => ({ label: r.desc.replace('ACM ', ''), valor: r.actual, color: colorDe(r.desc) }))
+
+  const porCliente = {}
+  delMes.forEach(v => { porCliente[v.cliente] = (porCliente[v.cliente] || 0) + sivaDe(v) })
+  const topCli = Object.entries(porCliente).sort((a, b) => b[1] - a[1]).slice(0, 5)
+  const maxCli = Math.max(1, ...topCli.map(c => c[1]))
+  const ultimas = [...ventas].sort((a, b) => (b.fecha || '').localeCompare(a.fecha || '')).slice(0, 6)
+
+  const kpis = [
+    ['Facturado ' + mesTxt.split(' ')[0] + ' s/IVA', fmt(fact), `${delMes.length} ventas`, '#185FA5'],
+    ['Ganancia estimada del mes', fmt(gan), fact ? Math.round(gan / fact * 100) + '% s/ventas' : '', gan >= 0 ? '#3B6D11' : '#A32D2D'],
+    ['Saldo por cobrar', fmt(tC - tCob), `cobrado ${fmt(tCob)}`, '#A32D2D'],
+    ['Stock en depósito', stockTotal + ' pl.', sinStock + ' colores sin stock', '#854F0B'],
+    ['Pendientes de entrega', pendEntrega.length, 'ventas sin despachar', '#533AB7'],
+  ]
+  const card = { background: '#fff', border: '0.5px solid #e5e7eb', borderRadius: 12, padding: '14px 16px', marginBottom: 14 }
+  return (
+    <div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(170px,1fr))', gap: 10, marginBottom: 14 }}>
+        {kpis.map(([l, v, sub, c]) => (
+          <div key={l} style={{ ...card, marginBottom: 0, borderTop: `3px solid ${c}` }}>
+            <div style={{ fontSize: 11, color: '#888', textTransform: 'uppercase', letterSpacing: .4 }}>{l}</div>
+            <div style={{ fontSize: 22, fontWeight: 700, margin: '4px 0 2px' }}>{v}</div>
+            <div style={{ fontSize: 12, color: c }}>{sub}</div>
+          </div>
+        ))}
+      </div>
+      {faltantes.length > 0 && (
+        <div style={{ ...card, background: '#FCEBEB', borderColor: '#F7C1C1', color: '#791F1F', fontSize: 13 }}>
+          ⚠ <b>Vendiste más de lo que tenés:</b> {faltantes.map(r => `${r.desc.replace('ACM ', '')} (faltan ${-r.disp})`).join(' · ')}
+        </div>
+      )}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(320px,1fr))', gap: 14 }}>
+        <div style={card}><div style={S.cardTitle}>Placas vendidas por color · {mesTxt}</div><BarrasH datos={datosVend} /></div>
+        <div style={card}><div style={S.cardTitle}>Stock por color (en depósito)</div><BarrasH datos={datosStock} /></div>
+        <div style={card}>
+          <div style={S.cardTitle}>Top clientes del mes (s/IVA)</div>
+          <BarrasH datos={topCli.map(([label, v]) => ({ label, valor: Math.round(v), color: '#185FA5' }))} formato={fmt} />
+          {!topCli.length && null}
+        </div>
+        <div style={card}>
+          <div style={S.cardTitle}>Últimas ventas</div>
+          {ultimas.map(v => (
+            <div key={v.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 8, padding: '6px 0', borderBottom: '0.5px solid #eee', fontSize: 13 }}>
+              <span>{v.fecha?.slice(5).split('-').reverse().join('/')} · <b>{v.cliente}</b></span>
+              <span style={{ whiteSpace: 'nowrap' }}>{fmt(sivaDe(v))} <EBadge e={v.estado} /></span>
+            </div>
+          ))}
+          {!ultimas.length && <div style={{ color: '#888', fontSize: 13 }}>Sin ventas todavía.</div>}
+        </div>
+      </div>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <button style={S.btnPrimary} onClick={() => irA(1)}>+ Nueva venta</button>
+        <button style={S.btn} onClick={() => irA(8)}>Importar</button>
+        <button style={S.btn} onClick={() => irA(3)}>Ver stock</button>
+      </div>
+    </div>
+  )
+}
+
 
 function DespachoCelda({ v, onUpdate }) {
   const [abierto, setAbierto] = useState(false)
