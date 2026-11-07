@@ -152,6 +152,25 @@ export default function App() {
   )
 }
 
+function DespachoCelda({ v, onUpdate }) {
+  const [abierto, setAbierto] = useState(false)
+  const [fecha, setFecha] = useState(hoy())
+  if (v.entrega) {
+    return (
+      <span style={{ fontSize: 12, whiteSpace: 'nowrap' }}>✓ <input type="date" style={{ ...S.input, width: 140, padding: '2px 6px', fontSize: 12 }} value={v.entrega} onChange={e => e.target.value && onUpdate(v.id, { entrega: e.target.value })} />{' '}
+        <button style={{ ...S.btnSm, padding: '1px 6px' }} title="Deshacer despacho" onClick={() => confirm('¿Deshacer el despacho? Las placas vuelven al stock.') && onUpdate(v.id, { entrega: '' })}>↩</button></span>
+    )
+  }
+  if (!abierto) return <button style={S.btnSm} onClick={() => { setFecha(hoy()); setAbierto(true) }}>Despachar</button>
+  return (
+    <span style={{ whiteSpace: 'nowrap' }}>
+      <input type="date" style={{ ...S.input, width: 140, padding: '2px 6px', fontSize: 12 }} value={fecha} onChange={e => setFecha(e.target.value)} />{' '}
+      <button style={{ ...S.btnSm, background: '#171D80', color: '#fff' }} onClick={() => { if (fecha) { onUpdate(v.id, { entrega: fecha }); setAbierto(false) } }}>OK</button>{' '}
+      <button style={S.btnSm} onClick={() => setAbierto(false)}>✕</button>
+    </span>
+  )
+}
+
 function TabVentas({ ventas, cobros, onDelete, onUpdate }) {
   const tS = ventas.reduce((s, v) => s + sivaDe(v), 0)
   const tC = ventas.reduce((s, v) => s + civaDe(v), 0)
@@ -189,9 +208,7 @@ function TabVentas({ ventas, cobros, onDelete, onUpdate }) {
                   <td style={{ ...S.td, textAlign: 'right', fontWeight: 600 }}>{fmt(c)}</td>
                   <td style={{ ...S.td, textAlign: 'right' }}>{fmt(cob)}</td>
                   <td style={{ ...S.td, textAlign: 'right', fontWeight: 600, color: Math.abs(saldo) < 1 ? '#3B6D11' : saldo > 0 ? '#A32D2D' : '#854F0B' }}>{fmt(saldo)}</td>
-                  <td style={S.td}>{v.entrega
-                    ? <span style={{ fontSize: 12 }}>✓ {v.entrega} <button style={{ ...S.btnSm, padding: '1px 6px' }} title="Deshacer despacho" onClick={() => confirm('¿Deshacer el despacho? Las placas vuelven al stock.') && onUpdate(v.id, { entrega: '' })}>↩</button></span>
-                    : <button style={S.btnSm} onClick={() => confirm('¿Salió la mercadería hoy? El stock va a bajar.') && onUpdate(v.id, { entrega: hoy() })}>Despachar</button>}</td>
+                  <td style={S.td}><DespachoCelda v={v} onUpdate={onUpdate} /></td>
                   <td style={S.td}><button style={S.btnDanger} onClick={() => onDelete(v.id)}>×</button></td>
                 </tr>
               )
