@@ -2,19 +2,19 @@ import { useState, useEffect, useCallback } from 'react'
 import { getCached, setCached, enqueue, flushQueue } from '../lib/offline'
 
 const COMBOS = [
-  ["1006015+1008024","ACM Blanco + Naranja",24],
-  ["1006015-1008009","ACM Blanco - Azul",31],
-  ["1006015-1008008","ACM Blanco - Verde",8],
-  ["1006015-1008011","ACM Blanco - Amarillo",5],
+  ["1006015+1008024","ACM Blanco + Naranja",21],
+  ["1006015-1008009","ACM Blanco - Azul",24],
+  ["1006015-1008008","ACM Blanco - Verde",7],
+  ["1006015-1008011","ACM Blanco - Amarillo",1],
   ["1006015-1006042","ACM Blanco - Oak",4],
   ["1006015-1006017","ACM Blanco - Bronze",25],
   ["1006015-201235","ACM Blanco - Madera Clara",151],
-  ["1008002-1006001","ACM Silver - Grafito",126],
+  ["1008002-1006001","ACM Silver - Grafito",52],
   ["1008002-1008014","ACM Silver - Negro",0],
-  ["1008002-1008030","ACM Silver - Brush",41],
+  ["1008002-1008030","ACM Silver - Brush",15],
   ["1008014-1006017","ACM Negro - Bronze",1],
   ["1008014-1008006","ACM Negro - Oro",0],
-  ["1008014-1008007","ACM Negro - Rojo",26],
+  ["1008014-1008007","ACM Negro - Rojo",7],
   ["1008014-1008033","Black + Mirror",99],
 ]
 const COLORES = ["Blanco","Naranja","Madera Clara","Azul","Verde","Amarillo","Oak","Bronze","Silver","Grafito","Negro","Brush","Silver Mate","Oro","Rojo","Mirror"]
