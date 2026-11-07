@@ -1,4 +1,4 @@
-const CACHE = 'alucoworld-v2'
+const CACHE = 'alucoworld-v3'
 const OFFLINE_URLS = ['/', '/_next/static/chunks/main.js']
 
 self.addEventListener('install', e => {
@@ -26,7 +26,8 @@ self.addEventListener('fetch', e => {
       fetch(e.request.clone()).catch(() => {
         // Offline: return empty arrays for GET, ok for mutations
         if (e.request.method === 'GET') {
-          return new Response(JSON.stringify([]), { headers: { 'Content-Type': 'application/json' } })
+          // Sin conexion: error real para que la app use su copia guardada (no una lista vacia)
+          return new Response(JSON.stringify({ error: 'offline' }), { status: 503, headers: { 'Content-Type': 'application/json' } })
         }
         return new Response(JSON.stringify({ ok: true, offline: true }), { headers: { 'Content-Type': 'application/json' } })
       })
